@@ -88,9 +88,28 @@
     border-bottom: 1px solid #eee;
     font-size: 15px;
     color: #222;
+    cursor: grab;
+    transition: background 0.1s;
+  }
+  #list li:last-child { border-bottom: none; }
+  #list li:active { cursor: grabbing; }
+  #list li.dragging {
+    opacity: 0.4;
+    background: #f0f0f0;
+  }
+  #list li.drag-over {
+    border-top: 2px solid #4a90d9;
   }
 
-  #list li:last-child { border-bottom: none; }
+  .drag-handle {
+    color: #ccc;
+    font-size: 14px;
+    cursor: grab;
+    flex-shrink: 0;
+    padding: 0 2px;
+    line-height: 1;
+  }
+  #list li:hover .drag-handle { color: #aaa; }
 
   #list li input[type="checkbox"] {
     width: 17px; height: 17px;
@@ -364,6 +383,14 @@
     items.forEach((item, idx) => {
       const li = document.createElement('li');
       if (item.checked) li.classList.add('checked');
+      li.draggable = true;
+      li.dataset.idx = idx;
+
+      // Drag handle
+      const handle = document.createElement('span');
+      handle.className = 'drag-handle';
+      handle.textContent = '⠿';
+      handle.title = 'Drag to reorder';
 
       const cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -375,11 +402,46 @@
       });
 
       const span = document.createElement('span');
+      span.style.flex = '1';
       span.textContent = item.text;
 
+      li.appendChild(handle);
       li.appendChild(cb);
       li.appendChild(span);
       ul.appendChild(li);
+    });
+
+    // ── Drag-and-drop wiring ──────────────────────────────────────────────
+    let dragSrc = null;
+
+    ul.querySelectorAll('li').forEach(li => {
+      li.addEventListener('dragstart', e => {
+        dragSrc = li;
+        li.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      li.addEventListener('dragend', () => {
+        li.classList.remove('dragging');
+        ul.querySelectorAll('li').forEach(r => r.classList.remove('drag-over'));
+        dragSrc = null;
+      });
+      li.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        ul.querySelectorAll('li').forEach(r => r.classList.remove('drag-over'));
+        if (li !== dragSrc) li.classList.add('drag-over');
+      });
+      li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+      li.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!dragSrc || dragSrc === li) return;
+        const fromIdx = parseInt(dragSrc.dataset.idx, 10);
+        const toIdx   = parseInt(li.dataset.idx, 10);
+        const moved   = items.splice(fromIdx, 1)[0];
+        items.splice(toIdx, 0, moved);
+        save();
+        render();
+      });
     });
   }
 
