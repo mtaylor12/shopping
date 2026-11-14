@@ -411,10 +411,11 @@
       ul.appendChild(li);
     });
 
-    // ── Drag-and-drop wiring ──────────────────────────────────────────────
+    // ── Drag-and-drop wiring (mouse + touch) ─────────────────────────────
     let dragSrc = null;
 
     ul.querySelectorAll('li').forEach(li => {
+      // ── Mouse drag (desktop) ──
       li.addEventListener('dragstart', e => {
         dragSrc = li;
         li.classList.add('dragging');
@@ -442,6 +443,39 @@
         save();
         render();
       });
+
+      // ── Touch drag (mobile) ──
+      const handle = li.querySelector('.drag-handle');
+      handle.addEventListener('touchstart', e => {
+        e.preventDefault();
+        dragSrc = li;
+        li.classList.add('dragging');
+      }, { passive: false });
+
+      handle.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetLi = target && target.closest('#list li');
+        ul.querySelectorAll('li').forEach(r => r.classList.remove('drag-over'));
+        if (targetLi && targetLi !== dragSrc) targetLi.classList.add('drag-over');
+      }, { passive: false });
+
+      handle.addEventListener('touchend', e => {
+        e.preventDefault();
+        li.classList.remove('dragging');
+        const over = ul.querySelector('li.drag-over');
+        ul.querySelectorAll('li').forEach(r => r.classList.remove('drag-over'));
+        if (over && dragSrc && over !== dragSrc) {
+          const fromIdx = parseInt(dragSrc.dataset.idx, 10);
+          const toIdx   = parseInt(over.dataset.idx, 10);
+          const moved   = items.splice(fromIdx, 1)[0];
+          items.splice(toIdx, 0, moved);
+          save();
+          render();
+        }
+        dragSrc = null;
+      }, { passive: false });
     });
   }
 
